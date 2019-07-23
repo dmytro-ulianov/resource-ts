@@ -1,0 +1,1 @@
+# @featherweight/resource-ts
