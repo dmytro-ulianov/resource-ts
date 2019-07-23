@@ -1,7 +1,7 @@
-import { sum } from '../src';
+import {resource} from '../src/resource'
 
-describe('blah', () => {
+describe('resource constructor', () => {
   it('works', () => {
-    expect(sum(1, 1)).toEqual(2);
-  });
-});
+    expect(resource.of(42)._tag).toEqual('succeded')
+  })
+})

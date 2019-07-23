@@ -9,12 +9,11 @@
   ],
   "author": "Dmytro Ulianov <dmytro.ulianov16@gmail.com>",
   "scripts": {
-    "start": "tsdx watch",
     "build": "tsdx build",
+    "prepublishOnly": "npm run build",
+    "pub": "npm publish --access public",
+    "start": "tsdx watch",
     "test": "tsdx test"
-  },
-  "peerDependencies": {
-    "fp-ts": "2.0.x"
   },
   "husky": {
     "hooks": {
