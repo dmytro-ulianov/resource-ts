@@ -1,4 +1,17 @@
-import {failed, initial, is, pending, resource, succeded} from '../src/resource'
+import {
+  alt,
+  bimap,
+  failed,
+  initial,
+  is,
+  map,
+  mapError,
+  pending,
+  resource,
+  succeded,
+} from '../src/resource'
+import {AnyResource, Resource} from '../src/types'
+// import {pipe} from 'fp-ts/lib/pipeable'
 
 describe('type constructors', () => {
   test('of', () => {
@@ -64,31 +77,182 @@ describe('type guards', () => {
   })
 })
 
+const makeRs = <D, E>(d: D, e: E) => {
+  return {
+    initialR: resource.initial as Resource<D, E>,
+    pendingR: resource.pending as Resource<D, E>,
+    failedR: resource.failed(e) as Resource<D, E>,
+    succededR: resource.succeded(d) as Resource<D, E>,
+  }
+}
+
 describe('resource.map()', () => {
-  test('identity', () => {
-    const r = resource.of(42)
-    const id = jest.fn(a => a)
-    expect(resource.map(r, id)).toEqual(r)
-    expect(id).toBeCalledTimes(1)
+  describe('laws', () => {
+    test('identity', () => {
+      const rs = makeRs(42, new Error())
+      const id = jest.fn(a => a)
+      expect(resource.map(rs.initialR, id)).toEqual(rs.initialR)
+      expect(resource.map(rs.pendingR, id)).toEqual(rs.pendingR)
+      expect(resource.map(rs.failedR, id)).toEqual(rs.failedR)
+      expect(resource.map(rs.succededR, id)).toEqual(rs.succededR)
+    })
+
+    test('composition', () => {
+      const rs = makeRs(42, new Error())
+
+      const f = jest.fn((n: number) => n * 2)
+      const g = jest.fn((n: number) => n + 8)
+
+      const chainWith = (r: AnyResource) => map(f)(map(g)(r))
+      const composeWith = map((a: any) => f(g(a)))
+
+      expect(chainWith(rs.initialR)).toEqual(composeWith(rs.initialR))
+      expect(chainWith(rs.pendingR)).toEqual(composeWith(rs.pendingR))
+      expect(chainWith(rs.failedR)).toEqual(composeWith(rs.failedR))
+      expect(chainWith(rs.succededR)).toEqual(composeWith(rs.succededR))
+    })
   })
 
-  test('composition', () => {
-    const r = resource.of(42)
-    const f = jest.fn((n: number) => n * 2)
-    const g = jest.fn((n: number) => n + 8)
+  test('map over succeded value', () => {
+    const value = 10
+    const rs = makeRs(value, new Error())
+    const double = jest.fn((n: number) => n + 8)
 
-    const chained = resource.map(resource.map(r, g), f)
-    const composed = resource.map(r, a => f(g(a)))
+    expect(resource.map(rs.initialR, double)).toEqual(rs.initialR)
+    expect(resource.map(rs.pendingR, double)).toEqual(rs.pendingR)
+    expect(resource.map(rs.failedR, double)).toEqual(rs.failedR)
+    expect(resource.map(rs.succededR, double)).toEqual(
+      resource.succeded(double(value)),
+    )
+  })
+})
 
-    expect(chained).toEqual(composed)
-    expect(f).toBeCalledTimes(2)
-    expect(g).toBeCalledTimes(2)
+describe('resource.mapError()', () => {
+  describe('laws', () => {
+    test('identity', () => {
+      const rs = makeRs(42, new Error())
+      const id = jest.fn(a => a)
+      expect(resource.mapError(rs.initialR, id)).toEqual(rs.initialR)
+      expect(resource.mapError(rs.pendingR, id)).toEqual(rs.pendingR)
+      expect(resource.mapError(rs.failedR, id)).toEqual(rs.failedR)
+      expect(resource.mapError(rs.succededR, id)).toEqual(rs.succededR)
+    })
+
+    test('composition', () => {
+      const rs = makeRs(42, new Error('oops'))
+
+      const f = jest.fn((m: string) => m.length)
+      const g = jest.fn((e: Error) => e.message)
+
+      const chainWith = (r: AnyResource) => mapError(f)(mapError(g)(r))
+      const composeWith = mapError((a: any) => f(g(a)))
+
+      expect(chainWith(rs.initialR)).toEqual(composeWith(rs.initialR))
+      expect(chainWith(rs.pendingR)).toEqual(composeWith(rs.pendingR))
+      expect(chainWith(rs.failedR)).toEqual(composeWith(rs.failedR))
+      expect(chainWith(rs.succededR)).toEqual(composeWith(rs.succededR))
+    })
   })
 
-  test('only map when succeded (skip other states)', () => {
-    const f = jest.fn((n: number) => n + 8)
-    const resources = [initial, pending, failed(0), succeded(42)]
-    resources.forEach(r => resource.map(r, f))
-    expect(f).toBeCalledTimes(1)
+  test('map over error', () => {
+    const error = new Error('oops')
+    const rs = makeRs(42, error)
+    const getMessage = jest.fn((e: Error) => e.message)
+
+    expect(resource.mapError(rs.initialR, getMessage)).toEqual(rs.initialR)
+    expect(resource.mapError(rs.pendingR, getMessage)).toEqual(rs.pendingR)
+    expect(resource.mapError(rs.failedR, getMessage)).toEqual(
+      resource.failed(getMessage(error)),
+    )
+    expect(resource.mapError(rs.succededR, getMessage)).toEqual(rs.succededR)
+  })
+})
+
+describe('resource.alt()', () => {
+  describe('laws', () => {
+    test('associativity', () => {
+      const rs = makeRs('any', new Error())
+
+      const b = () => pending
+      const c = () => succeded('pending')
+
+      const chainWith = (r: AnyResource) => alt(c)(alt(b)(r))
+      const composeWith = alt(() => alt(c)(b()))
+
+      expect(chainWith(rs.initialR)).toEqual(composeWith(rs.initialR))
+      expect(chainWith(rs.pendingR)).toEqual(composeWith(rs.pendingR))
+      expect(chainWith(rs.failedR)).toEqual(composeWith(rs.failedR))
+      expect(chainWith(rs.succededR)).toEqual(composeWith(rs.succededR))
+    })
+
+    test('distributivity', () => {
+      const rs = makeRs(1, new Error())
+
+      const b = () => succeded(42)
+      const f = (n: number) => n * 2
+
+      const chainWith = (r: AnyResource) => map(f)(alt(b)(r))
+      const composeWith = (r: AnyResource) => alt(() => map(f)(b()))(map(f)(r))
+
+      expect(chainWith(rs.initialR)).toEqual(composeWith(rs.initialR))
+      expect(chainWith(rs.pendingR)).toEqual(composeWith(rs.pendingR))
+      expect(chainWith(rs.failedR)).toEqual(composeWith(rs.failedR))
+      expect(chainWith(rs.succededR)).toEqual(composeWith(rs.succededR))
+    })
+  })
+
+  test('alt except success', () => {
+    const rs = makeRs(42, new Error())
+
+    const r1 = succeded(100)
+    const b = () => r1
+
+    expect(resource.alt(rs.initialR, b)).toEqual(r1)
+    expect(resource.alt(rs.pendingR, b)).toEqual(r1)
+    expect(resource.alt(rs.failedR, b)).toEqual(r1)
+    expect(resource.alt(rs.succededR, b)).toEqual(rs.succededR)
+  })
+})
+
+describe('resource.bimap()', () => {
+  describe('laws', () => {
+    test('identity', () => {
+      const rs = makeRs(42, new Error())
+      const id = jest.fn(a => a)
+      expect(resource.bimap(rs.initialR, id, id)).toEqual(rs.initialR)
+      expect(resource.bimap(rs.pendingR, id, id)).toEqual(rs.pendingR)
+      expect(resource.bimap(rs.failedR, id, id)).toEqual(rs.failedR)
+      expect(resource.bimap(rs.succededR, id, id)).toEqual(rs.succededR)
+    })
+
+    test('composition', () => {
+      const rs = makeRs(42, 0)
+
+      const f = jest.fn((n: number) => n * 2)
+      const g = jest.fn((n: number) => n + 8)
+
+      const fg = (n: number) => f(g(n))
+
+      const chainWith = (r: AnyResource) => bimap(f, f)(bimap(g, g)(r))
+      const composeWith = bimap(fg, fg)
+
+      expect(chainWith(rs.initialR)).toEqual(composeWith(rs.initialR))
+      expect(chainWith(rs.pendingR)).toEqual(composeWith(rs.pendingR))
+      expect(chainWith(rs.failedR)).toEqual(composeWith(rs.failedR))
+      expect(chainWith(rs.succededR)).toEqual(composeWith(rs.succededR))
+    })
+  })
+
+  test('map over succeded value', () => {
+    const value = 10
+    const rs = makeRs(value, new Error())
+    const double = jest.fn((n: number) => n + 8)
+
+    expect(resource.map(rs.initialR, double)).toEqual(rs.initialR)
+    expect(resource.map(rs.pendingR, double)).toEqual(rs.pendingR)
+    expect(resource.map(rs.failedR, double)).toEqual(rs.failedR)
+    expect(resource.map(rs.succededR, double)).toEqual(
+      resource.succeded(double(value)),
+    )
   })
 })
