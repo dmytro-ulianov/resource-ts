@@ -1,6 +1,13 @@
 import {pipe} from 'fp-ts/lib/pipeable'
-
-export type Tag = 'initial' | 'pending' | 'failed' | 'succeded'
+import {
+  AnyResource,
+  Failed,
+  Initial,
+  Pending,
+  Resource,
+  Succeded,
+  Tag,
+} from './types'
 
 export const tags: {[T in Tag]: T} = {
   failed: 'failed',
@@ -9,21 +16,18 @@ export const tags: {[T in Tag]: T} = {
   succeded: 'succeded',
 }
 
-export type Initial = {_tag: 'initial'}
-export type Pending = {_tag: 'pending'}
-export type Failed<E> = {_tag: 'failed'; error: E}
-export type Succeded<D> = {_tag: 'succeded'; value: D}
-
-export type Resource<D, E = any> = Initial | Pending | Failed<E> | Succeded<D>
-export type AnyResource = Resource<any, any>
-
-export const initial: Initial = {_tag: tags.initial}
-export const pending: Pending = {_tag: tags.pending}
-export const failed = <E>(e: E): Failed<E> => ({_tag: tags.failed, error: e})
-export const succeded = <D>(d: D): Succeded<D> => ({
+export const initial: AnyResource = {_tag: tags.initial}
+export const pending: AnyResource = {_tag: tags.pending}
+export const failed = <E>(e: E): Resource<any, E> => ({
+  _tag: tags.failed,
+  error: e,
+})
+export const succeded = <D>(d: D): Resource<D, any> => ({
   _tag: tags.succeded,
   value: d,
 })
+
+export const of = <D, E = any>(a: D): Resource<D, E> => succeded(a)
 
 export const is = {
   initial: (r: AnyResource): r is Initial => r._tag === tags.initial,
@@ -42,6 +46,19 @@ export const mapError = <D, E, R>(f: (e: E) => R) => (
   r: Resource<D, E>,
 ): Resource<D, R> => {
   return is.failed(r) ? failed(f(r.error)) : r
+}
+
+export const alt = <D, E>(r1: () => Resource<D, E>) => (r: Resource<D, E>) => {
+  return is.succeded(r) ? r : r1()
+}
+
+export const bimap = <D, E, R, E1>(
+  onSucceded: (d: D) => R,
+  onFailed: (e: E) => E1,
+) => (r: Resource<D, E>): Resource<R, E1> => {
+  if (is.succeded(r)) return succeded(onSucceded(r.value))
+  if (is.failed(r)) return failed(onFailed(r.error))
+  return r
 }
 
 export const chain = <D, E, R>(f: (d: D) => Resource<R, E>) => (
@@ -198,9 +215,15 @@ export const resource = {
   pending,
   failed,
   succeded,
-  of: <D, E = any>(a: D): Resource<D, E> => succeded(a),
+  of,
   map: <D, E, R>(fa: Resource<D, E>, f: (d: D) => R) => map<D, E, R>(f)(fa),
   mapError: <D, E, R>(fa: Resource<D, E>, f: (e: E) => R) => mapError(f)(fa),
+  alt: <D, E>(r: Resource<D, E>, r1: () => Resource<D, E>) => alt(r1)(r),
+  bimap: <D, E, R, E1>(
+    r: Resource<D, E>,
+    onSucceded: (d: D) => R,
+    onFailed: (e: E) => E1,
+  ): Resource<R, E1> => bimap(onSucceded, onFailed)(r),
   chain: <D, E, R>(fa: Resource<D, E>, f: (d: D) => Resource<R, E>) =>
     chain(f)(fa),
   fold: <D, E, R>(
