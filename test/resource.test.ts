@@ -1,16 +1,18 @@
 import {
   alt,
+  AnyResource,
   bimap,
+  chain,
   failed,
   initial,
   is,
   map,
   mapError,
   pending,
+  Resource,
   resource,
   succeded,
-} from '../src/resource'
-import {AnyResource, Resource} from '../src/types'
+} from '../src'
 // import {pipe} from 'fp-ts/lib/pipeable'
 
 describe('type constructors', () => {
@@ -113,7 +115,7 @@ describe('resource.map()', () => {
     })
   })
 
-  test('map over succeded value', () => {
+  test('map over value', () => {
     const value = 10
     const rs = makeRs(value, new Error())
     const double = jest.fn((n: number) => n + 8)
@@ -201,7 +203,7 @@ describe('resource.alt()', () => {
     })
   })
 
-  test('alt except success', () => {
+  test('alt over states except success', () => {
     const rs = makeRs(42, new Error())
 
     const r1 = succeded(100)
@@ -243,7 +245,7 @@ describe('resource.bimap()', () => {
     })
   })
 
-  test('map over succeded value', () => {
+  test('map over value and error', () => {
     const value = 10
     const rs = makeRs(value, new Error())
     const double = jest.fn((n: number) => n + 8)
@@ -254,5 +256,67 @@ describe('resource.bimap()', () => {
     expect(resource.map(rs.succededR, double)).toEqual(
       resource.succeded(double(value)),
     )
+  })
+})
+
+describe('resource.chain()', () => {
+  describe('laws', () => {
+    test('associativity', () => {
+      const rs = makeRs(42, new Error())
+
+      const f = jest.fn((n: number) => succeded(n * 2))
+      const g = jest.fn((n: number) => succeded(n + 8))
+
+      const chainWith = (r: AnyResource) => chain(f)(chain(g)(r))
+      const composeWith = chain<number, Error, number>(x => chain(f)(g(x)))
+
+      expect(chainWith(rs.initialR)).toEqual(composeWith(rs.initialR))
+      expect(chainWith(rs.pendingR)).toEqual(composeWith(rs.pendingR))
+      expect(chainWith(rs.failedR)).toEqual(composeWith(rs.failedR))
+      expect(chainWith(rs.succededR)).toEqual(composeWith(rs.succededR))
+    })
+  })
+
+  test('chain over value', () => {
+    const value = 50
+    const rs = makeRs(value, new Error())
+
+    const double = (n: number) => n * 2
+    const doubleR = (n: number) => succeded(double(n))
+
+    expect(resource.chain(rs.initialR, doubleR)).toEqual(rs.initialR)
+    expect(resource.chain(rs.pendingR, doubleR)).toEqual(rs.pendingR)
+    expect(resource.chain(rs.failedR, doubleR)).toEqual(rs.failedR)
+    expect(resource.chain(rs.succededR, doubleR)).toEqual(
+      resource.succeded(double(value)),
+    )
+  })
+})
+
+describe('resource.fold()', () => {
+  test('fold', () => {
+    const value = 42
+    const error = new Error('oops')
+    const rs = makeRs(value, error)
+    const fs = {
+      initial: 'initial',
+      pending: 'pending',
+      failed: (e: Error) => `failed ${e.message}`,
+      succeded: (n: number) => `succeded ${n}`,
+    }
+
+    const foldR = (r: AnyResource) =>
+      resource.fold(
+        r,
+        () => fs.initial,
+        () => fs.pending,
+        e => fs.failed(e),
+        n => fs.succeded(n),
+      )
+
+    expect(foldR(rs.initialR)).toEqual(fs.initial)
+    expect(foldR(rs.pendingR)).toEqual(fs.pending)
+    expect(foldR(rs.failedR)).toEqual(fs.failed(error))
+    expect(foldR(rs.succededR)).toEqual(fs.succeded(value))
   })
 })
