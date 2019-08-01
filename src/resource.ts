@@ -79,7 +79,7 @@ export const fold = <D, E, R>(
   return onSucceded(r.value)
 }
 
-const noop = () => null
+const noop = () => undefined
 
 export const cata = <D, E, R>(
   fs: {
@@ -216,6 +216,10 @@ export const resource = {
   failed,
   succeded,
   of,
+  ap: <D, E1, R, E2>(
+    rf: Resource<(d: D) => R, E1>,
+    r: Resource<D, E2>,
+  ): Resource<R, E1 | E2> => ap<D, E1, R, E2>(r)(rf),
   map: <D, E, R>(fa: Resource<D, E>, f: (d: D) => R) => map<D, E, R>(f)(fa),
   mapError: <D, E, R>(fa: Resource<D, E>, f: (e: E) => R) => mapError(f)(fa),
   alt: <D, E>(r: Resource<D, E>, r1: () => Resource<D, E>) => alt(r1)(r),
@@ -264,4 +268,7 @@ export const resource = {
       [tags.succeded]?: (v: D) => void
     } = {},
   ) => tap(fs)(r),
+  foldS: <D, R>(r: Resource<D, any>, f: (d: D) => R) => {
+    return cata({succeded: f})(r)
+  },
 }
