@@ -116,27 +116,43 @@ export const tap = <D, E>(
 export const ap = <D, E1, R, E2>(r: Resource<D, E2>) => (
   rf: Resource<(d: D) => R, E1>,
 ): Resource<R, E1 | E2> => {
-  // initial.ap(ANY) -> initial
-  if (is.initial(rf)) return rf
+  // failed > pending > initial > succeded
 
-  // pending.ap(initial) -> initial
-  // pending.ap(failed) -> failed
-  // pending.ap(pending | succeded) -> pending
+  if (is.failed(rf)) return rf
+
   if (is.pending(rf)) {
-    if (is.initial(r)) return r
     if (is.failed(r)) return r
     return rf
   }
 
-  // pending.ap(initial) -> initial
-  // pending.ap(failed | pending | succeded) -> failed
-  if (is.failed(rf)) {
-    if (is.initial(r)) return r
+  if (is.initial(rf)) {
+    if (is.failed(r) || is.pending(r)) return r
     return rf
   }
 
-  // succeded.ap(any)
   return map(rf.value)(r) as Resource<R, E1 | E2>
+
+  // // initial.ap(ANY) -> initial
+  // if (is.initial(rf)) return rf
+
+  // // pending.ap(initial) -> initial
+  // // pending.ap(failed) -> failed
+  // // pending.ap(pending | succeded) -> pending
+  // if (is.pending(rf)) {
+  //   if (is.initial(r)) return r
+  //   if (is.failed(r)) return r
+  //   return rf
+  // }
+
+  // // pending.ap(initial) -> initial
+  // // pending.ap(failed | pending | succeded) -> failed
+  // if (is.failed(rf)) {
+  //   if (is.initial(r)) return r
+  //   return rf
+  // }
+
+  // // succeded.ap(any)
+  // return map(rf.value)(r) as Resource<R, E1 | E2>
 }
 
 export const eq = (a: Resource<any, any>, b: Resource<any, any>) => {
