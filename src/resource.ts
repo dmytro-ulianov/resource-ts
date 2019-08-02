@@ -232,6 +232,7 @@ export const resource = {
   failed,
   succeded,
   of,
+  is,
   ap: <D, E1, R, E2>(
     rf: Resource<(d: D) => R, E1>,
     r: Resource<D, E2>,
