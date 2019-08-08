@@ -8,10 +8,25 @@ Resource is an ADT, that is hardly inspired by Remote Data [described here](http
 
 Don't forget to install `fp-ts`, as it is a peer dependency!
 
+## Contents
+
+- [`Basics`](#basics)
+- [`API`](#api)
+  - [`initial: Resource<any, any>`](#initial)
+  - [`pending: Resource<any, any>`](#pending)
+  - [`failed: (e: E) => Resource<any, E>`](#failed)
+  - [`succeded: (d: D) => Resource<D, any>`](#succeded)
+  - [`of: (d: D) => Resource<D, any>`](#of)
+  - [`is`](#is)
+  - [`map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`](#map)
+  - [`mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`](#map-error)
+  - [`alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`](#alt)
+  - [`bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`](#bimap)
+
 ## Basics
 
 So what is a Resource after all? Resource is basically a union of few types: `Initial`, `Pending`, `Failed` and `Succeded`.
-While `Failed` and `Succeded` holds some values (error and value respectively), `Initial` and `Pending` are just constans.
+While `Failed` and `Succeded` holds some values (error and value respectively), `Initial` and `Pending` are just constants.
 
 ```ts
 import {initial, pending, failed, succeded} from '@featherweight/resource-ts'
@@ -25,7 +40,7 @@ let articles = initial
 articles = pending
 
 fetchArticles()
-  // and depending on what you received you set the final state
+  // 3. you set the final state depending on what you received
   .then(value => {
     articles = succeded(value)
   })
@@ -34,7 +49,7 @@ fetchArticles()
   })
 ```
 
-Resource has 2 type parametrs `Resource<D, E>`, where `D` is data, and `E` is error. If you skip `E` it will fallback to `any`.
+Resource has 2 type parameters `Resource<D, E>`, where `D` is data, and `E` is error. If you skip `E` it will fallback to `any`.
 
 ```ts
 let articles: Resource<Articles[]>
@@ -49,13 +64,16 @@ So now we know how to wrap our data into Resource. Next step is unwrapping it.
 
 ```ts
 import {fold} from '@featherweight/resource-ts'
-let articles: Resource<Articles[], Error> = await getArticles()
+
+const articles: Resource<Articles[], Error> = await getArticles()
+
 const renderArticles = fold(
   () => `initial state`,
   () => `pending state`,
   error => error.message,
   articles => articles.map(a => a.title).join(', '),
 )
+
 renderArticles(articles)
 ```
 
@@ -174,6 +192,7 @@ Maps over succeded value and skips if resource is not succeded.
 import {map, succeded, failed} from '@featherweight/resource-ts'
 
 const double = map((n: number) => n * 2)
+
 double(succeded(10)) // succeded(20)
 double(failed('ouch')) // failed('ouch')
 ```
@@ -186,6 +205,7 @@ Maps over error value and skips if resource is not failed.
 import {mapError, succeded, failed} from '@featherweight/resource-ts'
 
 const toUpperCaseE = mapError((s: string) => s.toUpperCase())
+
 toUpperCaseE(succeded(10)) // succeded(10)
 toUpperCaseE(failed('ouch')) // failed('OUCH')
 ```
@@ -198,6 +218,7 @@ Substitutes resource if it's not succeded.
 import {alt, succeded, failed} from '@featherweight/resource-ts'
 
 const alt10 = alt(() => succeded(10))
+
 alt10(succeded(42)) // succeded(42)
 alt10(failed('ouch')) // succeded(10)
 ```
@@ -210,6 +231,7 @@ Maps both over value and error.
 import {alt, succeded, failed} from '@featherweight/resource-ts'
 
 const f = bimap((n: number) => n * 2, (s: string) => s.toUpperCase())
+
 f(succeded(10)) // succeded(20)
 f(failed('ouch')) // failed('OUCH')
 ```
