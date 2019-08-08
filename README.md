@@ -10,18 +10,28 @@ Don't forget to install `fp-ts`, as it is a peer dependency!
 
 ## Contents
 
-- [`Basics`](#basics)
-- [`API`](#api)
-  - [`initial: Resource<any, any>`](#initial)
-  - [`pending: Resource<any, any>`](#pending)
-  - [`failed: (e: E) => Resource<any, E>`](#failed)
-  - [`succeded: (d: D) => Resource<D, any>`](#succeded)
-  - [`of: (d: D) => Resource<D, any>`](#of)
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+
+- [Basics](#basics)
+- [API](#api)
+  - [`initial: Resource<any, any>`](#initial-resourceany-any)
+  - [`pending: Resource<any, any>`](#pending-resourceany-any)
+  - [`failed: (e: E) => Resource<any, E>`](#failed-e-e--resourceany-e)
+  - [`succeded: (d: D) => Resource<D, any>`](#succeded-d-d--resourced-any)
+  - [`of: (d: D) => Resource<D, any>`](#of-d-d--resourced-any)
   - [`is`](#is)
-  - [`map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`](#map)
-  - [`mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`](#map-error)
-  - [`alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`](#alt)
-  - [`bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`](#bimap)
+  - [`is.initial: (r: Resource<any, any>) => r is Initial`](#isinitial-r-resourceany-any--r-is-initial)
+  - [`is.pending: (r: Resource<any, any>) => r is Pending`](#ispending-r-resourceany-any--r-is-pending)
+  - [`is.failed: (r: Resource<any, any>) => r is Failed`](#isfailed-r-resourceany-any--r-is-failed)
+  - [`is.succeded: (r: Resource<any, any>) => r is Succeded`](#issucceded-r-resourceany-any--r-is-succeded)
+  - [`map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`](#map-f-d-d--r--r-resourced-e--resourcer-e)
+  - [`mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`](#maperror-f-e-e--e1--r-resourced-e--resourced-e1)
+  - [`alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`](#alt-r1---resourced-e--r-resourced-e--resourced-e)
+  - [`bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`](#bimap-fd-d-d--r-fe-e-e--e1--r-resourced-e--resourcer-e1)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Basics
 
