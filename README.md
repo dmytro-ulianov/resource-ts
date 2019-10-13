@@ -30,27 +30,32 @@ Don't forget to install `fp-ts`, as it is a peer dependency!
   - [`mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`](#maperror-f-e-e--e1--r-resourced-e--resourced-e1)
   - [`alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`](#alt-r1---resourced-e--r-resourced-e--resourced-e)
   - [`bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`](#bimap-fd-d-d--r-fe-e-e--e1--r-resourced-e--resourcer-e1)
+  - [`chain: (f: (d: D) => Resource<R, E>) => ( r: Resource<D, E>,): Resource<R, E>`](#chain-f-d-d--resourcer-e---r-resourced-e-resourcer-e)
+  - [`fold: ( onInitial: () => R, onPending: () => R, onFailed: (e: E) => R, onSucceded: (d: D) => R,) => (r: Resource<D, E>) => R`](#fold--oninitial---r-onpending---r-onfailed-e-e--r-onsucceded-d-d--r--r-resourced-e--r)
+  - [`cata: ( fs: { initial?: () => R, pending?: () => R, failed?: (e: E) => R, succeded?: (v: D) => R } = {}) => (r: Resource<D, E>) => R | undefined`](#cata--fs--initial---r-pending---r-failed-e-e--r-succeded-v-d--r-----r-resourced-e--r--undefined)
+- [Usage with fp-ts](#usage-with-fp-ts)
+- [Working with multiple resources](#working-with-multiple-resources)
 
 <!-- END doctoc generated TOC please keep comment here to allow auto update -->
 
 ## Basics
 
-So what is a Resource after all? Resource is basically a union of few types: `Initial`, `Pending`, `Failed` and `Succeded`.
-While `Failed` and `Succeded` holds some values (error and value respectively), `Initial` and `Pending` are just constants.
+Resource is just a sum type of: `Initial`, `Pending`, `Failed` and `Succeded`.
+While `Failed` and `Succeded` holds some data (`error` and `value` respectively), `Initial` and `Pending` are just constants.
 
 ```ts
 import {initial, pending, failed, succeded} from '@featherweight/resource-ts'
 
-// let imagine you are fetching articles from the server
+// lets imagine you're fetching articles from the api
 
-// 1. initial means, that nothing happened yet
+// 1. initial means that there is nothing happened yet
 let articles = initial
 
-// 2. then your want to indicate that data is loading
+// 2. when you start fetching your data you want to indicate that it's pending
 articles = pending
 
 fetchArticles()
-  // 3. you set the final state depending on what you received
+  // 3. you set the final state depending on result
   .then(value => {
     articles = succeded(value)
   })
@@ -62,15 +67,15 @@ fetchArticles()
 Resource has 2 type parameters `Resource<D, E>`, where `D` is data, and `E` is error. If you skip `E` it will fallback to `any`.
 
 ```ts
-let articles: Resource<Articles[]>
-// the same is Resource<Articles[], any>
+let articles: Resource<Book[]>
+// the same is Resource<Book[], any>
 articles = initial
 articles = pending
 articles = failed(new Error('Oops'))
 articles = succeded([{id: '0451', title: '1984'}])
 ```
 
-So now we know how to wrap our data into Resource. Next step is unwrapping it.
+So now we know how to wrap our data into resource. Next step is unwrapping it.
 
 ```ts
 import {fold} from '@featherweight/resource-ts'
@@ -97,17 +102,17 @@ import {fetchArticle, Article} from 'api'
 type ArticleR = Resource<Article, Error>
 
 export const Article: React.FC<{id: string}> = props => {
-  const [article, setArticle] = useState<ArticleR>(resource.initial)
+  const [state, setState] = useState<ArticleR>(resource.initial)
 
   useEffect(() => {
     fetchData()
     async function fetchData() {
-      setArticle(resource.pending)
+      setState(resource.pending)
       try {
         const article = await fetchArticle({id: props.id})
-        setArticle(resource.succeded(article))
+        setState(resource.succeded(article))
       } catch (error) {
-        setArticle(resource.failed(error))
+        setState(resource.failed(error))
       }
     }
   }, [props.id])
@@ -117,7 +122,7 @@ export const Article: React.FC<{id: string}> = props => {
       <h2>Article {props.id}</h2>
       <p>
         {resource.fold(
-          article,
+          state,
           () => null,
           () => 'fetching article',
           e => e.message,
@@ -137,6 +142,7 @@ export const Article: React.FC<{id: string}> = props => {
 import {initial} from '@featherweight/resource-ts'
 
 const article: Resource<Article> = initial
+// {_tag: 'initial'}
 ```
 
 ### `pending: Resource<any, any>`
@@ -145,6 +151,7 @@ const article: Resource<Article> = initial
 import {pending} from '@featherweight/resource-ts'
 
 const article: Resource<Article> = pending
+// {_tag: 'pending'}
 ```
 
 ### `failed: (e: E) => Resource<any, E>`
@@ -153,6 +160,7 @@ const article: Resource<Article> = pending
 import {failed} from '@featherweight/resource-ts'
 
 const article: Resource<Article> = failed(new Error('ouch'))
+// {_tag: 'failed', error: new Error('ouch')}
 ```
 
 ### `succeded: (d: D) => Resource<D, any>`
@@ -160,7 +168,8 @@ const article: Resource<Article> = failed(new Error('ouch'))
 ```ts
 import {succeded} from '@featherweight/resource-ts'
 
-const article: Resource<Article> = succeded([{id: '42', title: 'Hey'}])
+const article: Resource<Article> = succeded({id: '42', title: 'Hey'})
+// {_tag: 'succeded', value: {id: '42', title: 'Hey'}}
 ```
 
 ### `of: (d: D) => Resource<D, any>`
@@ -169,6 +178,7 @@ const article: Resource<Article> = succeded([{id: '42', title: 'Hey'}])
 import {of} from '@featherweight/resource-ts'
 
 const article: Resource<Article> = of({id: '0451', title: '1984'})
+// {_tag: 'succeded', value: {id: '0451', title: '1984'}}
 ```
 
 ### `is`
@@ -196,52 +206,187 @@ is.succeded(article) // true
 
 ### `map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`
 
-Maps over succeded value and skips if resource is not succeded.
-
 ```ts
-import {map, succeded, failed} from '@featherweight/resource-ts'
+import {
+  map,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
 
 const double = map((n: number) => n * 2)
 
-double(succeded(10)) // succeded(20)
 double(failed('ouch')) // failed('ouch')
+double(initial) // initial
+double(pending) // pending
+double(succeded(10)) // succeded(20)
 ```
 
 ### `mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`
 
-Maps over error value and skips if resource is not failed.
-
 ```ts
-import {mapError, succeded, failed} from '@featherweight/resource-ts'
+import {
+  mapError,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
 
 const toUpperCaseE = mapError((s: string) => s.toUpperCase())
 
-toUpperCaseE(succeded(10)) // succeded(10)
 toUpperCaseE(failed('ouch')) // failed('OUCH')
+toUpperCaseE(initial) // initial
+toUpperCaseE(pending) // pending
+toUpperCaseE(succeded(10)) // succeded(10)
 ```
 
 ### `alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`
 
-Substitutes resource if it's not succeded.
-
 ```ts
-import {alt, succeded, failed} from '@featherweight/resource-ts'
+import {
+  alt,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
 
 const alt10 = alt(() => succeded(10))
 
-alt10(succeded(42)) // succeded(42)
 alt10(failed('ouch')) // succeded(10)
+alt10(initial) // succeded(10)
+alt10(pending) // succeded(10)
+alt10(succeded(42)) // succeded(42)
 ```
 
 ### `bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`
 
-Maps both over value and error.
-
 ```ts
-import {alt, succeded, failed} from '@featherweight/resource-ts'
+import {
+  alt,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
 
 const f = bimap((n: number) => n * 2, (s: string) => s.toUpperCase())
 
-f(succeded(10)) // succeded(20)
 f(failed('ouch')) // failed('OUCH')
+f(initial) // initial
+f(pending) // pending
+f(succeded(10)) // succeded(20)
+```
+
+### `chain: (f: (d: D) => Resource<R, E>) => ( r: Resource<D, E>,): Resource<R, E>`
+
+```ts
+import {
+  chain,
+  of,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
+
+const doubleR = chain((n: number) => of({value: n, doubled: n * 2}))
+
+doubleR(succeded(10)) // succeded({value: 10, doubled: 20})
+doubleR(initial) // initial
+doubleR(pending) // pending
+doubleR(failed('ouch')) // failed('ouch')
+```
+
+### `fold: ( onInitial: () => R, onPending: () => R, onFailed: (e: E) => R, onSucceded: (d: D) => R,) => (r: Resource<D, E>) => R`
+
+```ts
+import {
+  fold,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
+
+const handle = fold(
+  () => 'nothing there yet',
+  () => 'in progress',
+  (e: Error) => `error: ${e.message}`,
+  (n: number) => `result: ${n}`,
+)
+
+handle(failed(new Error('nope'))) // error: nope
+handle(initial) // nothing there yet
+handle(pending) // in progress
+handle(succeded(42)) // resule: 42
+```
+
+### `cata: ( fs: { initial?: () => R, pending?: () => R, failed?: (e: E) => R, succeded?: (v: D) => R } = {}) => (r: Resource<D, E>) => R | undefined`
+
+```ts
+import {
+  cata,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
+
+const handle = cata({
+  failed: (e: Error) => `error: ${e.message}`,
+  pending: () => 'in progress',
+  succeded: (n: number) => `result: ${n}`,
+})
+
+handle(failed(new Error('nope'))) // error: nope
+handle(initial) // undefined
+handle(pending) // in progress
+handle(succeded(42)) // resule: 42
+```
+
+## Usage with fp-ts
+
+Curried functions work well with `fp-ts` pipe.
+
+```ts
+import {pipe} from 'fp-ts/lib/pipeable'
+import * as r from '@featherweight/resource-ts'
+
+const user = r.of({name: 'Tom', age: 30})
+
+const display = pipe(
+  user,
+  // fallback to unknown user
+  r.alt(() => r.of(({name: 'Unknown user', age: 0})))
+  // prepare a display name
+  r.map(user => `${user.name}, age of ${user.age}`),
+)
+// Tom, age of 30
+```
+
+## Working with multiple resources
+
+You can use concat methods to connect multiple resources
+
+```ts
+import * as r from '@featherweight/resource-ts'
+
+const user = r.of({name: 'John', id: '42'})
+let friends = r.pending
+
+r.concat(user, friends)
+// pending
+
+friends = r.of([{name: 'Tom', id: '5'}])
+
+r.concat(user, friends)
+// succeded([{name: 'John', id: '42'}, [{name: 'Tom', id: '5'}]])
+
+const movie = r.failed(new Error('movie not found'))
+
+r.concat3(user, friends, movie)
+// failed('movie not found')
 ```

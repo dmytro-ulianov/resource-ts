@@ -1,6 +1,6 @@
 {
   "name": "@featherweight/resource-ts",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "main": "dist/index.js",
   "module": "dist/resource-ts.esm.js",
   "typings": "dist/index.d.ts",

@@ -79,6 +79,10 @@ export const fold = <D, E, R>(
   return onSucceded(r.value)
 }
 
+export const foldS = <D, E, R>(f: (d: D) => R) => (r: Resource<D, E>) => {
+  return cata({succeded: f})(r)
+}
+
 const noop = () => undefined
 
 export const cata = <D, E, R>(
@@ -131,28 +135,6 @@ export const ap = <D, E1, R, E2>(r: Resource<D, E2>) => (
   }
 
   return map(rf.value)(r) as Resource<R, E1 | E2>
-
-  // // initial.ap(ANY) -> initial
-  // if (is.initial(rf)) return rf
-
-  // // pending.ap(initial) -> initial
-  // // pending.ap(failed) -> failed
-  // // pending.ap(pending | succeded) -> pending
-  // if (is.pending(rf)) {
-  //   if (is.initial(r)) return r
-  //   if (is.failed(r)) return r
-  //   return rf
-  // }
-
-  // // pending.ap(initial) -> initial
-  // // pending.ap(failed | pending | succeded) -> failed
-  // if (is.failed(rf)) {
-  //   if (is.initial(r)) return r
-  //   return rf
-  // }
-
-  // // succeded.ap(any)
-  // return map(rf.value)(r) as Resource<R, E1 | E2>
 }
 
 export const eq = (a: Resource<any, any>, b: Resource<any, any>) => {
@@ -286,6 +268,6 @@ export const resource = {
     } = {},
   ) => tap(fs)(r),
   foldS: <D, R>(r: Resource<D, any>, f: (d: D) => R) => {
-    return cata({succeded: f})(r)
+    return foldS(f)(r)
   },
 }
