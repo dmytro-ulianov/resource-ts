@@ -1,4 +1,5 @@
 import {pipe} from 'fp-ts/lib/pipeable'
+import {Option} from 'fp-ts/lib/Option'
 import {
   AnyResource,
   Failed,
@@ -29,10 +30,25 @@ export const succeded = <D>(d: D): Resource<D, any> => ({
 
 export const of = <D, E = any>(a: D): Resource<D, E> => succeded(a)
 
+/**
+ * Helpers that ensures current state of resource
+ */
 export const is = {
+  /**
+   * Returns true if resource is initial
+   */
   initial: (r: AnyResource): r is Initial => r._tag === tags.initial,
+  /**
+   * Returns true if resource is pending
+   */
   pending: (r: AnyResource): r is Pending => r._tag === tags.pending,
+  /**
+   * Returns true if resource is failed
+   */
   failed: (r: AnyResource): r is Failed<any> => r._tag === tags.failed,
+  /**
+   * Returns true if resource is succeded
+   */
   succeded: (r: AnyResource): r is Succeded<any> => r._tag === tags.succeded,
 }
 
@@ -77,10 +93,6 @@ export const fold = <D, E, R>(
   if (is.pending(r)) return onPending()
   if (is.failed(r)) return onFailed(r.error)
   return onSucceded(r.value)
-}
-
-export const foldS = <D, E, R>(f: (d: D) => R) => (r: Resource<D, E>) => {
-  return cata({succeded: f})(r)
 }
 
 const noop = () => undefined
@@ -208,13 +220,49 @@ export const concat4 = <D, R, L, P, E1, E2, E3, E4>(
   return lift4(a => b => c => d => [a, b, c, d], r1, r2, r3, r4)
 }
 
+export const fromNullable = <D = any, E = any>(
+  d: D | null | undefined,
+): Resource<D, E> => {
+  return d == null ? initial : succeded(d)
+}
+
+export const toNullable = <D, E>(r: Resource<D, E>): D | null => {
+  return is.succeded(r) ? r.value : null
+}
+
+export const toUndefined = <D, E>(r: Resource<D, E>): D | undefined => {
+  return is.succeded(r) ? r.value : undefined
+}
+
+export const getOrElse = <D, E>(f: () => D) => (r: Resource<D, E>) => {
+  return is.succeded(r) ? r.value : f()
+}
+
+export const recover = <D, E>(onError: (e: E) => Option<D>) => (
+  r: Resource<D, E>,
+) => {
+  const self = () => r
+  return cata({
+    initial: self,
+    pending: self,
+    succeded: self,
+    failed: (e: E) => {
+      const option = onError(e)
+      return option._tag === 'Some' ? succeded(option.value) : r
+    },
+  })(r)
+}
+
 export const resource = {
-  initial,
-  pending,
   failed,
-  succeded,
-  of,
+  fromNullable,
+  initial,
   is,
+  of,
+  pending,
+  succeded,
+  toNullable,
+  toUndefined,
   ap: <D, E1, R, E2>(
     rf: Resource<(d: D) => R, E1>,
     r: Resource<D, E2>,
@@ -267,7 +315,10 @@ export const resource = {
       [tags.succeded]?: (v: D) => void
     } = {},
   ) => tap(fs)(r),
-  foldS: <D, R>(r: Resource<D, any>, f: (d: D) => R) => {
-    return foldS(f)(r)
+  recover: <D, E>(r: Resource<D, E>, onError: (e: E) => Option<D>) => {
+    return recover(onError)(r)
+  },
+  getOrElse: <D, E>(r: Resource<D, E>, f: () => D) => {
+    return getOrElse(f)(r)
   },
 }

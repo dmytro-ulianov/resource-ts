@@ -13,7 +13,6 @@ Don't forget to install `fp-ts`, as it is a peer dependency!
 <!-- START doctoc generated TOC please keep comment here to allow auto update -->
 <!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
 
-
 - [Basics](#basics)
 - [API](#api)
   - [`initial: Resource<any, any>`](#initial-resourceany-any)
@@ -369,7 +368,8 @@ const display = pipe(
 
 ## Working with multiple resources
 
-You can use concat methods to connect multiple resources
+You can use concat methods to connect multiple resources.
+Be aware that the preference of resources are: `failed > pending > initial > succeded`
 
 ```ts
 import * as r from '@featherweight/resource-ts'
