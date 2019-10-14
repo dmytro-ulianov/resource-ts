@@ -12,8 +12,11 @@ import {
   Resource,
   resource,
   succeded,
+  recover,
+  cata,
 } from '../src'
-// import {pipe} from 'fp-ts/lib/pipeable'
+import {pipe} from 'fp-ts/lib/pipeable'
+import {some, none} from 'fp-ts/lib/Option'
 
 describe('type constructors', () => {
   test('of', () => {
@@ -319,4 +322,23 @@ describe('resource.fold()', () => {
     expect(foldR(rs.failedR)).toEqual(fs.failed(error))
     expect(foldR(rs.succededR)).toEqual(fs.succeded(value))
   })
+})
+
+it('recovers', () => {
+  type Err = {msg: string; code: number}
+  type User = {name: string}
+
+  const userF: Resource<User, Err> = failed({msg: 'not found!', code: 404})
+
+  const displayString = pipe(
+    userF,
+    recover(error => (error.code === 404 ? some({name: 'Anonymous'}) : none)),
+    map(user => user.name),
+    cata({
+      failed: e => `We failed with code ${e.code}`,
+      succeded: name => `Username: "${name}"`,
+    }),
+  )
+
+  expect(displayString).toBe(`Username: "Anonymous"`)
 })

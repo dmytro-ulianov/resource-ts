@@ -238,19 +238,26 @@ export const getOrElse = <D, E>(f: () => D) => (r: Resource<D, E>) => {
   return is.succeded(r) ? r.value : f()
 }
 
+export const recoverMap = <D, E, R>(
+  onError: (e: E) => Option<R>,
+  onSuccess: (d: D) => R,
+) => (r: Resource<D, E>) => {
+  const self = () => r as Resource<R, E>
+  return fold(
+    self,
+    self,
+    (e: E): Resource<R, E> => {
+      const option = onError(e)
+      return option._tag === 'Some' ? succeded(option.value) : failed(e)
+    },
+    (d: D): Resource<R, E> => succeded(onSuccess(d)),
+  )(r)
+}
+
 export const recover = <D, E>(onError: (e: E) => Option<D>) => (
   r: Resource<D, E>,
 ) => {
-  const self = () => r
-  return cata({
-    initial: self,
-    pending: self,
-    succeded: self,
-    failed: (e: E) => {
-      const option = onError(e)
-      return option._tag === 'Some' ? succeded(option.value) : r
-    },
-  })(r)
+  return recoverMap(onError, d => d)(r) as Resource<D, E>
 }
 
 export const resource = {
@@ -315,6 +322,13 @@ export const resource = {
       [tags.succeded]?: (v: D) => void
     } = {},
   ) => tap(fs)(r),
+  recoverMap: <D, E, R>(
+    r: Resource<D, E>,
+    onError: (e: E) => Option<R>,
+    onSuccess: (d: D) => R,
+  ) => {
+    return recoverMap(onError, onSuccess)(r)
+  },
   recover: <D, E>(r: Resource<D, E>, onError: (e: E) => Option<D>) => {
     return recover(onError)(r)
   },
