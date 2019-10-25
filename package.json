@@ -1,6 +1,8 @@
 {
   "name": "@featherweight/resource-ts",
-  "version": "0.4.1",
+  "version": "0.4.2",
+  "description": "Resource ADT",
+  "sideEffects": false,
   "main": "dist/index.js",
   "module": "dist/resource-ts.esm.js",
   "typings": "dist/index.d.ts",
