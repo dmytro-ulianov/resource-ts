@@ -15,6 +15,7 @@ Don't forget to install `fp-ts`, as it is a peer dependency!
 
 - [Basics](#basics)
 - [API](#api)
+  - [`constructors`](#constructors)
   - [`initial: Resource<any, any>`](#initial-resourceany-any)
   - [`pending: Resource<any, any>`](#pending-resourceany-any)
   - [`failed: (e: E) => Resource<any, E>`](#failed-e-e--resourceany-e)
@@ -135,7 +136,12 @@ export const Article: React.FC<{id: string}> = props => {
 
 ## API
 
-### `initial: Resource<any, any>`
+#### `constructors`
+
+There are 4 type constructors: `initial`, `pending`, `failed` and `succeded` plus
+one alias for `succeded` -> `of`
+
+#### `initial: Resource<any, any>`
 
 ```ts
 import {initial} from '@featherweight/resource-ts'
@@ -144,7 +150,7 @@ const article: Resource<Article> = initial
 // {_tag: 'initial'}
 ```
 
-### `pending: Resource<any, any>`
+#### `pending: Resource<any, any>`
 
 ```ts
 import {pending} from '@featherweight/resource-ts'
@@ -153,7 +159,7 @@ const article: Resource<Article> = pending
 // {_tag: 'pending'}
 ```
 
-### `failed: (e: E) => Resource<any, E>`
+#### `failed: (e: E) => Resource<any, E>`
 
 ```ts
 import {failed} from '@featherweight/resource-ts'
@@ -162,7 +168,7 @@ const article: Resource<Article> = failed(new Error('ouch'))
 // {_tag: 'failed', error: new Error('ouch')}
 ```
 
-### `succeded: (d: D) => Resource<D, any>`
+#### `succeded: (d: D) => Resource<D, any>`
 
 ```ts
 import {succeded} from '@featherweight/resource-ts'
@@ -171,7 +177,7 @@ const article: Resource<Article> = succeded({id: '42', title: 'Hey'})
 // {_tag: 'succeded', value: {id: '42', title: 'Hey'}}
 ```
 
-### `of: (d: D) => Resource<D, any>`
+#### `of: (d: D) => Resource<D, any>`
 
 ```ts
 import {of} from '@featherweight/resource-ts'
@@ -180,17 +186,17 @@ const article: Resource<Article> = of({id: '0451', title: '1984'})
 // {_tag: 'succeded', value: {id: '0451', title: '1984'}}
 ```
 
-### `is`
+#### `is`
 
 `is` contains type guards for each resource type
 
-### `is.initial: (r: Resource<any, any>) => r is Initial`
+#### `is.initial: (r: Resource<any, any>) => r is Initial`
 
-### `is.pending: (r: Resource<any, any>) => r is Pending`
+#### `is.pending: (r: Resource<any, any>) => r is Pending`
 
-### `is.failed: (r: Resource<any, any>) => r is Failed`
+#### `is.failed: (r: Resource<any, any>) => r is Failed`
 
-### `is.succeded: (r: Resource<any, any>) => r is Succeded`
+#### `is.succeded: (r: Resource<any, any>) => r is Succeded`
 
 ```ts
 import {is, succeded} from '@featherweight/resource-ts'
@@ -203,7 +209,7 @@ is.failed(article) // false
 is.succeded(article) // true
 ```
 
-### `map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`
+#### `map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`
 
 ```ts
 import {
@@ -222,7 +228,7 @@ double(pending) // pending
 double(succeded(10)) // succeded(20)
 ```
 
-### `mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`
+#### `mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`
 
 ```ts
 import {
@@ -241,7 +247,7 @@ toUpperCaseE(pending) // pending
 toUpperCaseE(succeded(10)) // succeded(10)
 ```
 
-### `alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`
+#### `alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`
 
 ```ts
 import {
@@ -260,7 +266,7 @@ alt10(pending) // succeded(10)
 alt10(succeded(42)) // succeded(42)
 ```
 
-### `bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`
+#### `bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`
 
 ```ts
 import {
@@ -279,7 +285,7 @@ f(pending) // pending
 f(succeded(10)) // succeded(20)
 ```
 
-### `chain: (f: (d: D) => Resource<R, E>) => ( r: Resource<D, E>,): Resource<R, E>`
+#### `chain: (f: (d: D) => Resource<R, E>) => ( r: Resource<D, E>,): Resource<R, E>`
 
 ```ts
 import {
@@ -299,7 +305,7 @@ doubleR(pending) // pending
 doubleR(failed('ouch')) // failed('ouch')
 ```
 
-### `fold: ( onInitial: () => R, onPending: () => R, onFailed: (e: E) => R, onSucceded: (d: D) => R,) => (r: Resource<D, E>) => R`
+#### `fold: ( onInitial: () => R, onPending: () => R, onFailed: (e: E) => R, onSucceded: (d: D) => R,) => (r: Resource<D, E>) => R`
 
 ```ts
 import {
@@ -323,7 +329,7 @@ handle(pending) // in progress
 handle(succeded(42)) // resule: 42
 ```
 
-### `cata: ( fs: { initial?: () => R, pending?: () => R, failed?: (e: E) => R, succeded?: (v: D) => R } = {}) => (r: Resource<D, E>) => R | undefined`
+#### `cata: ( fs: { initial?: () => R, pending?: () => R, failed?: (e: E) => R, succeded?: (v: D) => R } = {}) => (r: Resource<D, E>) => R | undefined`
 
 ```ts
 import {

@@ -23,10 +23,7 @@
   },
   "husky": {
     "hooks": {
-      "pre-commit": [
-        "pretty-quick --staged",
-        "npm run doctoc"
-      ]
+      "pre-commit": "pretty-quick --staged"
     }
   },
   "devDependencies": {
