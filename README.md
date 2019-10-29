@@ -1,61 +1,31 @@
 # @featherweight/resource-ts
 
-Resource is an ADT, that is hardly inspired by Remote Data [described here](https://medium.com/@gcanti/slaying-a-ui-antipattern-with-flow-5eed0cfb627b).
+## Intro
+
+Resource is an [ADT](https://wiki.haskell.org/Algebraic_data_type), that is heavily inspired by Remote Data [described here](https://medium.com/@gcanti/slaying-a-ui-antipattern-with-flow-5eed0cfb627b).
+
+Basically it's just a sum type of four states: `Initial`, `Pending`, `Failed` and `Succeded`.
+While `Succeded` and `Failed` holds some data (`value` and `error` respectively), `Initial` and `Pending` are just constants.
 
 ## Install
 
 `npm install --save @featherweight/resource-ts fp-ts`
 
-Don't forget to install `fp-ts`, as it is a peer dependency!
+Don't forget to install peer dependency: `fp-ts`.
 
-## Contents
-
-<!-- START doctoc generated TOC please keep comment here to allow auto update -->
-<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
-
-- [Basics](#basics)
-- [API](#api)
-  - [`constructors`](#constructors)
-  - [`initial: Resource<any, any>`](#initial-resourceany-any)
-  - [`pending: Resource<any, any>`](#pending-resourceany-any)
-  - [`failed: (e: E) => Resource<any, E>`](#failed-e-e--resourceany-e)
-  - [`succeded: (d: D) => Resource<D, any>`](#succeded-d-d--resourced-any)
-  - [`of: (d: D) => Resource<D, any>`](#of-d-d--resourced-any)
-  - [`is`](#is)
-  - [`is.initial: (r: Resource<any, any>) => r is Initial`](#isinitial-r-resourceany-any--r-is-initial)
-  - [`is.pending: (r: Resource<any, any>) => r is Pending`](#ispending-r-resourceany-any--r-is-pending)
-  - [`is.failed: (r: Resource<any, any>) => r is Failed`](#isfailed-r-resourceany-any--r-is-failed)
-  - [`is.succeded: (r: Resource<any, any>) => r is Succeded`](#issucceded-r-resourceany-any--r-is-succeded)
-  - [`map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`](#map-f-d-d--r--r-resourced-e--resourcer-e)
-  - [`mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`](#maperror-f-e-e--e1--r-resourced-e--resourced-e1)
-  - [`alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`](#alt-r1---resourced-e--r-resourced-e--resourced-e)
-  - [`bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`](#bimap-fd-d-d--r-fe-e-e--e1--r-resourced-e--resourcer-e1)
-  - [`chain: (f: (d: D) => Resource<R, E>) => ( r: Resource<D, E>,): Resource<R, E>`](#chain-f-d-d--resourcer-e---r-resourced-e-resourcer-e)
-  - [`fold: ( onInitial: () => R, onPending: () => R, onFailed: (e: E) => R, onSucceded: (d: D) => R,) => (r: Resource<D, E>) => R`](#fold--oninitial---r-onpending---r-onfailed-e-e--r-onsucceded-d-d--r--r-resourced-e--r)
-  - [`cata: ( fs: { initial?: () => R, pending?: () => R, failed?: (e: E) => R, succeded?: (v: D) => R } = {}) => (r: Resource<D, E>) => R | undefined`](#cata--fs--initial---r-pending---r-failed-e-e--r-succeded-v-d--r-----r-resourced-e--r--undefined)
-- [Usage with fp-ts](#usage-with-fp-ts)
-- [Working with multiple resources](#working-with-multiple-resources)
-
-<!-- END doctoc generated TOC please keep comment here to allow auto update -->
-
-## Basics
-
-Resource is just a sum type of: `Initial`, `Pending`, `Failed` and `Succeded`.
-While `Failed` and `Succeded` holds some data (`error` and `value` respectively), `Initial` and `Pending` are just constants.
+## Quick start
 
 ```ts
-import {initial, pending, failed, succeded} from '@featherweight/resource-ts'
+import {resource} from '@featherweight/resource-ts'
 
-// lets imagine you're fetching articles from the api
+/* Request is not started yet */
+let articlesR = resource.initial
 
-// 1. initial means that there is nothing happened yet
-let articles = initial
+/* Request is started, but not finished */
+articlesR = resource.pending
 
-// 2. when you start fetching your data you want to indicate that it's pending
-articles = pending
-
+/* Request is finished with value or error */
 fetchArticles()
-  // 3. you set the final state depending on result
   .then(value => {
     articles = succeded(value)
   })
@@ -64,32 +34,40 @@ fetchArticles()
   })
 ```
 
-Resource has 2 type parameters `Resource<D, E>`, where `D` is data, and `E` is error. If you skip `E` it will fallback to `any`.
+Resource is typed by 2 parameters: **D** (Data) and **E** (Error) - `Resource<D, E>`.
 
 ```ts
-let articles: Resource<Book[]>
-// the same is Resource<Book[], any>
-articles = initial
-articles = pending
-articles = failed(new Error('Oops'))
-articles = succeded([{id: '0451', title: '1984'}])
+import {initial, failed, pending, succeded} from '@featherweight/resource-ts'
+
+type Article = {title: string}
+
+let articlesR: Resource<Article[], Error>
+
+articlesR = initial
+articlesR = pending
+articlesR = failed(new Error('Oops'))
+articlesR = succeded([{title: '1984'}])
 ```
 
-So now we know how to wrap our data into resource. Next step is unwrapping it.
+Previous examples show you how to wrap data into resource. Now let's see what to do with it and how to unwrap it.
 
 ```ts
 import {fold} from '@featherweight/resource-ts'
 
-const articles: Resource<Articles[], Error> = await getArticles()
+function getArticles(): Resource<Article[], Error> {
+  /* _ _ _ */
+}
 
-const renderArticles = fold(
-  () => `initial state`,
-  () => `pending state`,
-  error => error.message,
+/**
+ * fold provides a typesafe way to extract value from resource
+ * and it enforces you to provide handlers for all possible states
+ * */
+const display = fold(
+  () => `not started`,
+  () => `loading...`,
+  error => `error: ${error.message}`,
   articles => articles.map(a => a.title).join(', '),
-)
-
-renderArticles(articles)
+)(await getArticles())
 ```
 
 Now let's glue it all together in React example
@@ -97,7 +75,8 @@ Now let's glue it all together in React example
 ```tsx
 import React, {useEffect, useState} from 'react'
 import {resource, Resource} from '@featherweight/resource-ts'
-import {fetchArticle, Article} from 'api'
+
+import {fetchArticle, Article} from './api'
 
 type ArticleR = Resource<Article, Error>
 
@@ -134,12 +113,41 @@ export const Article: React.FC<{id: string}> = props => {
 }
 ```
 
+## Contents
+
+<!-- START doctoc generated TOC please keep comment here to allow auto update -->
+<!-- DON'T EDIT THIS SECTION, INSTEAD RE-RUN doctoc TO UPDATE -->
+
+- [Basics](#basics)
+- [API](#api)
+  - [`constructors`](#constructors)
+  - [`initial: Resource<any, any>`](#initial-resourceany-any)
+  - [`pending: Resource<any, any>`](#pending-resourceany-any)
+  - [`failed: (e: E) => Resource<any, E>`](#failed-e-e--resourceany-e)
+  - [`succeded: (d: D) => Resource<D, any>`](#succeded-d-d--resourced-any)
+  - [`of: (d: D) => Resource<D, any>`](#of-d-d--resourced-any)
+  - [`is`](#is)
+  - [`is.initial: (r: Resource<any, any>) => r is Initial`](#isinitial-r-resourceany-any--r-is-initial)
+  - [`is.pending: (r: Resource<any, any>) => r is Pending`](#ispending-r-resourceany-any--r-is-pending)
+  - [`is.failed: (r: Resource<any, any>) => r is Failed`](#isfailed-r-resourceany-any--r-is-failed)
+  - [`is.succeded: (r: Resource<any, any>) => r is Succeded`](#issucceded-r-resourceany-any--r-is-succeded)
+  - [`map: (f: (d: D) => R) => (r: Resource<D, E>) => Resource<R, E>`](#map-f-d-d--r--r-resourced-e--resourcer-e)
+  - [`mapError: (f: (e: E) => E1) => (r: Resource<D, E>) => Resource<D, E1>`](#maperror-f-e-e--e1--r-resourced-e--resourced-e1)
+  - [`alt: (r1: () => Resource<D, E>) => (r: Resource<D, E>) => Resource<D, E>`](#alt-r1---resourced-e--r-resourced-e--resourced-e)
+  - [`bimap: (fd: (d: D) => R, fe: (e: E) => E1) => (r: Resource<D, E>) => Resource<R, E1>`](#bimap-fd-d-d--r-fe-e-e--e1--r-resourced-e--resourcer-e1)
+  - [`chain: (f: (d: D) => Resource<R, E>) => ( r: Resource<D, E>,): Resource<R, E>`](#chain-f-d-d--resourcer-e---r-resourced-e-resourcer-e)
+  - [`fold: ( onInitial: () => R, onPending: () => R, onFailed: (e: E) => R, onSucceded: (d: D) => R,) => (r: Resource<D, E>) => R`](#fold--oninitial---r-onpending---r-onfailed-e-e--r-onsucceded-d-d--r--r-resourced-e--r)
+  - [`cata: ( fs: { initial?: () => R, pending?: () => R, failed?: (e: E) => R, succeded?: (v: D) => R } = {}) => (r: Resource<D, E>) => R | undefined`](#cata--fs--initial---r-pending---r-failed-e-e--r-succeded-v-d--r-----r-resourced-e--r--undefined)
+- [Usage with fp-ts](#usage-with-fp-ts)
+- [Working with multiple resources](#working-with-multiple-resources)
+
+<!-- END doctoc generated TOC please keep comment here to allow auto update -->
+
 ## API
 
 #### `constructors`
 
-There are 4 type constructors: `initial`, `pending`, `failed` and `succeded` plus
-one alias for `succeded` -> `of`
+There are 4 type constructors: `initial`, `pending`, `failed` and `succeded` plus one alias for `succeded` -> `of`
 
 #### `initial: Resource<any, any>`
 
@@ -340,6 +348,7 @@ import {
   succeded,
 } from '@featherweight/resource-ts'
 
+/* works the same way as fold, but with cata you can skip states */
 const handle = cata({
   failed: (e: Error) => `error: ${e.message}`,
   pending: () => 'in progress',
@@ -350,6 +359,30 @@ handle(failed(new Error('nope'))) // error: nope
 handle(initial) // undefined
 handle(pending) // in progress
 handle(succeded(42)) // resule: 42
+```
+
+#### `tap`
+
+```ts
+import {
+  tap,
+  failed,
+  initial,
+  pending,
+  succeded,
+} from '@featherweight/resource-ts'
+
+/* executes handlers and returns the same resource */
+const log = tap({
+  failed: (e: Error) => console.error(e),
+  pending: () => console.log('loading...'),
+  succeded: (n: number) => console.log(`result: ${n}`),
+})
+
+log(failed(new Error('nope'))) // error: nope
+log(initial) // undefined
+log(pending) // in progress
+log(succeded(42)) // resule: 42
 ```
 
 ## Usage with fp-ts

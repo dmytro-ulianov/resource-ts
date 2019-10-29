@@ -95,25 +95,40 @@ export const fold = <D, E, R>(
   return onSucceded(r.value)
 }
 
-const noop = () => undefined
+const noop = () => null
 
-export const cata = <D, E, R>(
+type CataParams<D, E, R> = {
+  [tags.initial]: () => R
+  [tags.pending]: () => R
+  [tags.failed]: (e: E) => R
+  [tags.succeded]: (v: D) => R
+}
+
+export function cata<D, E, R>(fs: CataParams<D, E, R>): (r: Resource<D, E>) => R
+
+export function cata<D, E, R>(
+  fs: Partial<CataParams<D, E, R>>,
+): (r: Resource<D, E>) => R | null
+
+export function cata<D, E, R>(
   fs: {
     [tags.initial]?: () => R
     [tags.pending]?: () => R
     [tags.failed]?: (e: E) => R
     [tags.succeded]?: (v: D) => R
   } = {},
-) => (r: Resource<D, E>) => {
-  switch (r._tag) {
-    case tags.initial:
-      return (fs[tags.initial] || noop)()
-    case tags.pending:
-      return (fs[tags.pending] || noop)()
-    case tags.failed:
-      return (fs[tags.failed] || noop)(r.error)
-    case tags.succeded:
-      return (fs[tags.succeded] || noop)(r.value)
+) {
+  return (r: Resource<D, E>) => {
+    switch (r._tag) {
+      case tags.initial:
+        return (fs[tags.initial] || noop)()
+      case tags.pending:
+        return (fs[tags.pending] || noop)()
+      case tags.failed:
+        return (fs[tags.failed] || noop)(r.error)
+      case tags.succeded:
+        return (fs[tags.succeded] || noop)(r.value)
+    }
   }
 }
 
@@ -260,6 +275,20 @@ export const recover = <D, E>(onError: (e: E) => Option<D>) => (
   return recoverMap(onError, d => d)(r) as Resource<D, E>
 }
 
+function cataR<D, E, R>(r: Resource<D, E>, fs: CataParams<D, E, R>): R
+
+function cataR<D, E, R>(
+  r: Resource<D, E>,
+  fs: Partial<CataParams<D, E, R>>,
+): R | null
+
+function cataR<D, E, R>(
+  r: Resource<D, E>,
+  fs: Partial<CataParams<D, E, R>> = {},
+) {
+  return cata(fs)(r)
+}
+
 export const resource = {
   failed,
   fromNullable,
@@ -304,15 +333,7 @@ export const resource = {
     r3: Resource<L, E3>,
     r4: Resource<P, E4>,
   ) => concat4<D, R, L, P, E1, E2, E3, E4>(r2, r3, r4)(r1),
-  cata: <D, E, R>(
-    r: Resource<D, E>,
-    fs: {
-      [tags.initial]?: () => R
-      [tags.pending]?: () => R
-      [tags.failed]?: (e: E) => R
-      [tags.succeded]?: (v: D) => R
-    } = {},
-  ) => cata(fs)(r),
+  cata: cataR,
   tap: <D, E>(
     r: Resource<D, E>,
     fs: {
